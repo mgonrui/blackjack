@@ -1,0 +1,14 @@
+{
+    "diagnostics": {
+        "globals": [
+            "love",
+            "arg"
+        ]
+    },
+    "workspace": {
+        "library": [
+            "/usr/share/love/api"
+        ],
+        "checkThirdParty": false
+    }
+}
