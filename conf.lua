@@ -1,5 +1,6 @@
 function love.conf(t)
-	t.window.title = "Solitaire"
+	t.window.title = "Blackjack"
+	t.version = "11.5"
 	t.window.width = 2024
 	t.window.height = 1068
 	t.modules.joystick = false

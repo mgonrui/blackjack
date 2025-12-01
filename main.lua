@@ -1,92 +1,65 @@
 _G.love = require("love")
-local text, pos
-local cards = {
-	"images/deck/Back_Blue_2.png",
-	"images/deck/Joker_Black.png",
-	"images/deck/Joker_Red.png",
-	"images/deck/Clubs_10.png",
-	"images/deck/Clubs_11.png",
-	"images/deck/Clubs_12.png",
-	"images/deck/Clubs_13.png",
-	"images/deck/Clubs_1.png",
-	"images/deck/Clubs_2.png",
-	"images/deck/Clubs_3.png",
-	"images/deck/Clubs_4.png",
-	"images/deck/Clubs_5.png",
-	"images/deck/Clubs_6.png",
-	"images/deck/Clubs_7.png",
-	"images/deck/Clubs_8.png",
-	"images/deck/Clubs_9.png",
-	"images/deck/Diamond_10.png",
-	"images/deck/Diamond_11.png",
-	"images/deck/Diamond_12.png",
-	"images/deck/Diamond_13.png",
-	"images/deck/Diamond_1.png",
-	"images/deck/Diamond_2.png",
-	"images/deck/Diamond_3.png",
-	"images/deck/Diamond_4.png",
-	"images/deck/Diamond_5.png",
-	"images/deck/Diamond_6.png",
-	"images/deck/Diamond_7.png",
-	"images/deck/Diamond_8.png",
-	"images/deck/Diamond_9.png",
-	"images/deck/Hearts_10.png",
-	"images/deck/Hearts_11.png",
-	"images/deck/Hearts_12.png",
-	"images/deck/Hearts_13.png",
-	"images/deck/Hearts_1.png",
-	"images/deck/Hearts_2.png",
-	"images/deck/Hearts_3.png",
-	"images/deck/Hearts_4.png",
-	"images/deck/Hearts_5.png",
-	"images/deck/Hearts_6.png",
-	"images/deck/Hearts_7.png",
-	"images/deck/Hearts_8.png",
-	"images/deck/Hearts_9.png",
-	"images/deck/Spades_10.png",
-	"images/deck/Spades_11.png",
-	"images/deck/Spades_12.png",
-	"images/deck/Spades_13.png",
-	"images/deck/Spades_1.png",
-	"images/deck/Spades_2.png",
-	"images/deck/Spades_3.png",
-	"images/deck/Spades_4.png",
-	"images/deck/Spades_5.png",
-	"images/deck/Spades_6.png",
-	"images/deck/Spades_7.png",
-	"images/deck/Spades_8.png",
-	"images/deck/Spades_9.png",
-}
-local cards_loaded = {}
-
-local function wrap_deck_bounds()
-	if _G.card_index > #cards_loaded then
-		_G.card_index = 1
-	elseif _G.card_index == 0 then
-		_G.card_index = #cards_loaded
-	end
-end
-
-function love.keypressed(key, _, _)
-	if key == "k" then
-		_G.card_index = _G.card_index + 1
-		wrap_deck_bounds()
-	elseif key == "j" then
-		_G.card_index = _G.card_index - 1
-		wrap_deck_bounds()
-	end
-end
+local deck_setup = require("deck_setup")
+local deck_actions = require("deck_actions")
 
 function love.load(args)
-	for i, value in ipairs(cards) do
-		cards_loaded[i] = love.graphics.newImage(value)
+	Game = {
+		prompt = "",
+		user_input = "",
+		current_bet = nil,
+		face_down_card = love.graphics.newImage("images/deck/Back_Blue_2.png"),
+		bank = 800,
+		deck = deck_setup.big_deck(6),
+		state = {
+			waiting_for_bet = true,
+			deal_initial_cards = false,
+			player_turn = false,
+			dealer_turn = false,
+			resolving_bets = false,
+			round_complete = false,
+		},
+	}
+	for _, card in ipairs(Game.deck) do
+		card.img_loaded = love.graphics.newImage(card.img_path)
 	end
-	_G.card_index = 1
-	_G.timer = 0
+	love.graphics.setBackgroundColor(love.math.colorFromBytes(60, 179, 113, 0))
 end
 
 function love.update(dt) end
 
+function love.textinput(t)
+	Game.prompt = Game.prompt .. t
+	Game.user_input = Game.user_input .. t
+end
+
 function love.draw()
-	love.graphics.draw(cards_loaded[_G.card_index], nil, nil, nil, 2)
+	love.graphics.print("BANK: " .. Game.bank, 1100, 100, 0, 3)
+	love.graphics.print("CARDS LEFT: " .. #Game.deck, 1700, 700, 0, 3)
+	love.graphics.draw(Game.face_down_card, 1600, 200, 0, 2)
+	love.graphics.draw(Game.face_down_card, 1620, 220, 0, 2)
+	love.graphics.draw(Game.face_down_card, 1640, 240, 0, 2)
+
+	if Game.state.waiting_for_bet == true then
+		love.graphics.print("ENTER BET: ", 100, 100, 0, 3)
+		love.graphics.print(Game.user_input, 350, 100, 0, 3)
+		if Game.current_bet ~= nil then
+			Game.bank = Game.bank - Game.current_bet
+			first_card = deck_actions.draw_card(Game.deck)
+			second_card = deck_actions.draw_card(Game.deck)
+			Game.state.waiting_for_bet = false
+			Game.state.deal_initial_cards = true
+		end
+	end
+	if Game.state.deal_initial_cards == true then
+		love.graphics.draw(first_card.img_loaded, 1000, 500, 0, 2)
+		love.graphics.draw(second_card.img_loaded, 1000, 600, 0, 2)
+		-- love.graphics.print("TIME FOR INITIAL CARDS")
+		love.graphics.print(Game.current_bet)
+	end
+end
+
+function love.keypressed(key, _, _)
+	if key == "return" and Game.state.waiting_for_bet == true then
+		Game.current_bet = tonumber(Game.user_input)
+	end
 end
