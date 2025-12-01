@@ -1,28 +1,64 @@
 _G.love = require("love")
 local deck_setup = require("deck_setup")
 local deck_actions = require("deck_actions")
+local push = require("push")
+
+local gameWidth, gameHeight = 1080, 720 --fixed game resolution
+local windowWidth, windowHeight = love.window.getDesktopDimensions()
+windowWidth, windowHeight = windowWidth * 0.7, windowHeight * 0.7 --make the window a bit smaller than the screen itself
+push:setupScreen(gameWidth, gameHeight, windowWidth, windowHeight, { fullscreen = false })
 
 function love.load(args)
+	regularFont = love.graphics.newFont("fonts/StarCrush.ttf", 23)
 	Game = {
 		prompt = "",
+		scale = math.ceil(love.graphics.getHeight() / gameWidth),
 		user_input = "",
 		current_bet = nil,
 		face_down_card = love.graphics.newImage("images/deck/Back_Blue_2.png"),
 		bank = 800,
 		deck = deck_setup.big_deck(6),
+		player_hand = {},
+		dealer_hand = {},
 		state = {
 			waiting_for_bet = true,
-			deal_initial_cards = false,
 			player_turn = false,
 			dealer_turn = false,
 			resolving_bets = false,
 			round_complete = false,
 		},
+		locations = {
+			deck = {
+				x = 900,
+				y = 100,
+			},
+			cards_left = {
+				y = 50,
+			},
+			bank = {
+				x = 10,
+				y = 50,
+			},
+			player_first_card = {
+				x = 400,
+				y = 400,
+			},
+			dealer_first_card = {
+				y = 100,
+			},
+			player_count = {},
+			dealer_count = {},
+			current_bet = {
+				y = 110,
+			},
+		},
 	}
+	Game.locations.cards_left.x = Game.locations.deck.x
+	Game.locations.dealer_first_card.x = Game.locations.player_first_card.x
+	Game.locations.current_bet.x = Game.locations.bank.x
 	for _, card in ipairs(Game.deck) do
 		card.img_loaded = love.graphics.newImage(card.img_path)
 	end
-	love.graphics.setBackgroundColor(love.math.colorFromBytes(60, 179, 113, 0))
 end
 
 function love.update(dt) end
@@ -32,34 +68,97 @@ function love.textinput(t)
 	Game.user_input = Game.user_input .. t
 end
 
-function love.draw()
-	love.graphics.print("BANK: " .. Game.bank, 1100, 100, 0, 3)
-	love.graphics.print("CARDS LEFT: " .. #Game.deck, 1700, 700, 0, 3)
-	love.graphics.draw(Game.face_down_card, 1600, 200, 0, 2)
-	love.graphics.draw(Game.face_down_card, 1620, 220, 0, 2)
-	love.graphics.draw(Game.face_down_card, 1640, 240, 0, 2)
-
-	if Game.state.waiting_for_bet == true then
-		love.graphics.print("ENTER BET: ", 100, 100, 0, 3)
-		love.graphics.print(Game.user_input, 350, 100, 0, 3)
-		if Game.current_bet ~= nil then
-			Game.bank = Game.bank - Game.current_bet
-			first_card = deck_actions.draw_card(Game.deck)
-			second_card = deck_actions.draw_card(Game.deck)
-			Game.state.waiting_for_bet = false
-			Game.state.deal_initial_cards = true
-		end
+local function set_initial_draw()
+	for i = 1, #Game.dealer_hand do
+		love.graphics.draw(
+			Game.dealer_hand[i].img_loaded,
+			Game.locations.dealer_first_card.x + (i - 1) * 30,
+			Game.locations.dealer_first_card.y + (i - 1) * 30,
+			0,
+			Game.scale
+		)
 	end
-	if Game.state.deal_initial_cards == true then
-		love.graphics.draw(first_card.img_loaded, 1000, 500, 0, 2)
-		love.graphics.draw(second_card.img_loaded, 1000, 600, 0, 2)
-		-- love.graphics.print("TIME FOR INITIAL CARDS")
-		love.graphics.print(Game.current_bet)
+	for i = 1, #Game.player_hand do
+		love.graphics.draw(
+			Game.player_hand[i].img_loaded,
+			Game.locations.player_first_card.x + (i - 1) * 30,
+			Game.locations.player_first_card.y + (i - 1) * 30,
+			0,
+			Game.scale
+		)
 	end
 end
 
+function love.draw()
+	push:start()
+	push:setBorderColor(love.math.colorFromBytes(60, 179, 113, 0))
+	love.graphics.printf(
+		"BANK: " .. Game.bank,
+		regularFont,
+		Game.locations.bank.x,
+		Game.locations.bank.y,
+		100,
+		"justify"
+	)
+	love.graphics.printf(
+		"CARDS LEFT: " .. #Game.deck,
+		regularFont,
+		Game.locations.cards_left.x,
+		Game.locations.cards_left.y,
+		100,
+		"justify"
+	)
+	love.graphics.draw(Game.face_down_card, Game.locations.deck.x, Game.locations.deck.y, 0, Game.scale)
+
+	if Game.state.waiting_for_bet == true then
+		love.graphics.printf("BET: " .. Game.user_input, regularFont, 400, 350, 100, "justify")
+		if Game.current_bet ~= nil then
+			Game.bank = Game.bank - Game.current_bet
+			Game.state.waiting_for_bet = false
+			Game.state.player_turn = true
+			deck_actions.draw_card(Game.deck, Game.player_hand, Game.dealer_hand, 2, 2)
+		end
+	else
+		love.graphics.printf(
+			"BET: " .. Game.current_bet,
+			regularFont,
+			Game.locations.current_bet.x,
+			Game.locations.current_bet.y,
+			100,
+			"justify"
+		)
+	end
+
+	if Game.state.player_turn == true then
+		set_initial_draw()
+		love.graphics.draw(
+			Game.face_down_card,
+			Game.locations.dealer_first_card.x + 30,
+			Game.locations.dealer_first_card.y + 30,
+			0,
+			Game.scale
+		)
+	end
+
+	if Game.state.dealer_turn == true then
+		set_initial_draw()
+	end
+	push:finish()
+end
+
 function love.keypressed(key, _, _)
-	if key == "return" and Game.state.waiting_for_bet == true then
-		Game.current_bet = tonumber(Game.user_input)
+	if Game.state.waiting_for_bet == true then
+		if key == "return" then
+			Game.current_bet = tonumber(Game.user_input)
+		end
+	end
+	if Game.state.player_turn == true then
+		if key == "s" then
+			Game.state.player_turn = false
+			Game.state.dealer_turn = true
+		end
+		if key == "h" then
+			deck_actions.draw_card(Game.deck, Game.player_hand, Game.dealer_hand, 1, 0)
+		end
 	end
 end
