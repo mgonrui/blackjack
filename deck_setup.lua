@@ -36,9 +36,9 @@ local function shuffle(deck)
 	return deck
 end
 
-function deck_setup.big_deck(ndecks)
+local function big_deck(ndecks)
 	local entire_deck = {}
-	for i = 1, ndecks, 1 do
+	for _ = 1, ndecks do
 		local deck = single_deck()
 		for _, card in ipairs(deck) do
 			table.insert(entire_deck, card)
@@ -47,4 +47,4 @@ function deck_setup.big_deck(ndecks)
 	return shuffle(entire_deck)
 end
 
-return deck_setup
+return big_deck

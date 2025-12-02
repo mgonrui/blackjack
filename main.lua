@@ -1,11 +1,12 @@
 _G.love = require("love")
 local deck_setup = require("deck_setup")
-local deck_actions = require("deck_actions")
+local draw_card = require("deck_actions")
 local push = require("push")
 
 local gameWidth, gameHeight = 1080, 720 --fixed game resolution
 local windowWidth, windowHeight = love.window.getDesktopDimensions()
 windowWidth, windowHeight = windowWidth * 0.7, windowHeight * 0.7 --make the window a bit smaller than the screen itself
+-- windowWidth, windowHeight = windowWidth * 0.7, windowHeight * 0.7 --make the window a bit smaller than the screen itself
 push:setupScreen(gameWidth, gameHeight, windowWidth, windowHeight, { fullscreen = false })
 
 function love.load(args)
@@ -17,9 +18,11 @@ function love.load(args)
 		current_bet = nil,
 		face_down_card = love.graphics.newImage("images/deck/Back_Blue_2.png"),
 		bank = 800,
-		deck = deck_setup.big_deck(6),
+		deck = deck_setup(6),
 		player_hand = {},
 		dealer_hand = {},
+		player_pts = 0,
+		dealer_pts = 0,
 		state = {
 			waiting_for_bet = true,
 			player_turn = false,
@@ -112,18 +115,28 @@ function love.draw()
 
 	if Game.state.waiting_for_bet == true then
 		love.graphics.printf("BET: " .. Game.user_input, regularFont, 400, 350, 100, "justify")
-		if Game.current_bet ~= nil then
-			Game.bank = Game.bank - Game.current_bet
-			Game.state.waiting_for_bet = false
-			Game.state.player_turn = true
-			deck_actions.draw_card(Game.deck, Game.player_hand, Game.dealer_hand, 2, 2)
-		end
 	else
 		love.graphics.printf(
 			"BET: " .. Game.current_bet,
 			regularFont,
 			Game.locations.current_bet.x,
 			Game.locations.current_bet.y,
+			100,
+			"justify"
+		)
+		love.graphics.printf(
+			"YOUR PTS: " .. Game.player_pts,
+			regularFont,
+			Game.locations.current_bet.x,
+			Game.locations.current_bet.y + 300,
+			100,
+			"justify"
+		)
+		love.graphics.printf(
+			"DEALER PTS: " .. Game.dealer_pts,
+			regularFont,
+			Game.locations.current_bet.x,
+			Game.locations.current_bet.y + 200,
 			100,
 			"justify"
 		)
@@ -146,19 +159,62 @@ function love.draw()
 	push:finish()
 end
 
+local function count_points(hand, is_dealer)
+	local sum = 0
+	local ace_found = false
+
+	for _, card in ipairs(hand) do
+		if card.value == 1 then
+			ace_found = true
+		end
+		sum = sum + card.value
+	end
+	if is_dealer == true and Game.state.player_turn == true then
+		sum = sum - hand[2].value
+		if hand[2].value == 1 then
+			ace_found = false
+		end
+	end
+	if sum + 10 <= 21 and ace_found == true then
+		sum = sum + 10
+	end
+	return sum
+end
+
 function love.keypressed(key, _, _)
 	if Game.state.waiting_for_bet == true then
 		if key == "return" then
 			Game.current_bet = tonumber(Game.user_input)
+			if Game.current_bet ~= nil then
+				Game.bank = Game.bank - Game.current_bet
+				draw_card(Game.deck, Game.player_hand, Game.dealer_hand, 2, 2)
+				Game.state.waiting_for_bet = false
+				Game.state.player_turn = true
+				Game.player_pts = count_points(Game.player_hand, false)
+				Game.dealer_pts = count_points(Game.dealer_hand, true)
+			end
+			Game.user_input = ""
 		end
 	end
 	if Game.state.player_turn == true then
 		if key == "s" then
 			Game.state.player_turn = false
 			Game.state.dealer_turn = true
+			Game.dealer_pts = count_points(Game.dealer_hand, true)
 		end
 		if key == "h" then
-			deck_actions.draw_card(Game.deck, Game.player_hand, Game.dealer_hand, 1, 0)
+			draw_card(Game.deck, Game.player_hand, Game.dealer_hand, 1, 0)
+			Game.player_pts = count_points(Game.player_hand, false)
+			Game.dealer_pts = count_points(Game.dealer_hand, true)
+		end
+	end
+	if Game.state.dealer_turn == true then
+		if key == "return" then
+			Game.user_input = ""
+			Game.dealer_hand = {}
+			Game.player_hand = {}
+			Game.state.dealer_turn = false
+			Game.state.waiting_for_bet = true
 		end
 	end
 end

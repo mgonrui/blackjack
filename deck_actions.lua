@@ -1,6 +1,4 @@
-local deck_actions = {}
-
-function deck_actions.draw_card(deck, player_hand, dealer_hand, num_player, num_dealer)
+local function draw_card(deck, player_hand, dealer_hand, num_player, num_dealer)
 	for _ = 1, num_player do
 		local card = table.remove(deck)
 		table.insert(player_hand, card)
@@ -11,4 +9,4 @@ function deck_actions.draw_card(deck, player_hand, dealer_hand, num_player, num_
 	end
 end
 
-return deck_actions
+return draw_card
